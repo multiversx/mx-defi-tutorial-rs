@@ -10,16 +10,27 @@ pub trait Escrow {
 
     #[payable("EGLD")]
     #[endpoint(deposit)]
-    fn deposit(&self) {}
+    fn deposit(&self) {
+        let caller = self.blockchain().get_caller();
+        let payment = self.call_value().egld_value();
 
-    #[only_owner]
-    #[endpoint(deposit)]
-    fn withdraw(&self) {
-       let balance = &self
-            .blockchain()
-            .get_sc_balance(&EgldOrEsdtTokenIdentifier::egld(), 0);
-
-        self.send()
-            .direct_egld(&self.blockchain().get_caller(), balance);
+        let new_balance = self.user_balance(caller.clone()).get() + &*payment;
+        self.user_balance(caller).set(new_balance);
     }
+
+    #[endpoint(withdraw)]
+    fn withdraw(&self) {
+        let caller = self.blockchain().get_caller();
+        let balance = self.user_balance(caller.clone()).get();
+
+        self.user_balance(caller.clone()).set(BigUint::from(0u64));
+        self.send()
+            .direct_egld(&caller, &balance);
+    }
+
+    // storage
+
+    #[view(getUserBalance)]
+    #[storage_mapper("userBalance")]
+    fn user_balance(&self, address: ManagedAddress) -> SingleValueMapper<BigUint>;
 }
