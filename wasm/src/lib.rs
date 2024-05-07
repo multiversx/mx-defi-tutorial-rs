@@ -5,9 +5,9 @@
 ////////////////////////////////////////////////////
 
 // Init:                                 1
-// Endpoints:                            3
+// Endpoints:                            9
 // Async Callback (empty):               1
-// Total number of exported functions:   5
+// Total number of exported functions:  11
 
 #![no_std]
 #![allow(internal_features)]
@@ -20,9 +20,15 @@ multiversx_sc_wasm_adapter::endpoints! {
     escrow
     (
         init => init
-        deposit => deposit
-        withdraw => withdraw
+        upgrade => upgrade
+        createOffer => create_offer
+        cancelOffer => cancel_offer
+        acceptOffer => accept_offer
+        listOffers => get_offers
         getUserBalance => user_balance
+        created_offers => created_offers
+        wanted_offers => wanted_offers
+        offers => offers
     )
 }
 
