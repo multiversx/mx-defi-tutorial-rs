@@ -5,9 +5,9 @@
 ////////////////////////////////////////////////////
 
 // Init:                                 1
-// Endpoints:                            9
+// Endpoints:                           10
 // Async Callback (empty):               1
-// Total number of exported functions:  11
+// Total number of exported functions:  12
 
 #![no_std]
 #![allow(internal_features)]
@@ -24,7 +24,8 @@ multiversx_sc_wasm_adapter::endpoints! {
         createOffer => create_offer
         cancelOffer => cancel_offer
         acceptOffer => accept_offer
-        listOffers => get_offers
+        getCreatedOffers => get_created_offers
+        getWantedOffers => get_wanted_offers
         getUserBalance => user_balance
         created_offers => created_offers
         wanted_offers => wanted_offers

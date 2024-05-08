@@ -6,10 +6,11 @@ multiversx_sc::derive_imports!();
 #[derive(TypeAbi, TopEncode, TopDecode)]
 pub struct Offer<M: ManagedTypeApi> {
     pub creator: ManagedAddress<M>,
-    pub nft: TokenIdentifier<M>,
+    pub identifier: TokenIdentifier<M>,
     pub nonce: u64,
     pub accepted_token: TokenIdentifier<M>,
     pub accepted_nonce: u64,
+    pub accepted_amount: BigUint<M>,
     pub accepted_address: ManagedAddress<M>,
 }
 
@@ -27,12 +28,12 @@ pub trait Escrow {
         &self,
         accepted_token: TokenIdentifier,
         accepted_nonce: u64,
+        accepted_amount: BigUint,
         accepted_address: ManagedAddress,
     ) -> u32 {
         let caller = self.blockchain().get_caller();
         let payment = self.call_value().single_esdt();
 
-        require!(accepted_nonce > 0, "Wanted ESDT is not an NFT");
         require!(
             payment.token_nonce > 0 && payment.amount == 1,
             "ESDT is not an NFT"
@@ -46,10 +47,11 @@ pub trait Escrow {
 
         let offer = Offer {
             creator: caller,
-            nft: payment.token_identifier,
+            identifier: payment.token_identifier,
             nonce: payment.token_nonce,
             accepted_token,
             accepted_nonce,
+            accepted_amount,
             accepted_address
         };
 
@@ -81,7 +83,7 @@ pub trait Escrow {
 
         self.send().direct_esdt(
             &offer.creator,
-            &offer.nft,
+            &offer.identifier,
             offer.nonce,
             &BigUint::from(1u64),
         );
@@ -95,18 +97,13 @@ pub trait Escrow {
         require!(!offers_mapper.is_empty(), "Offer does not exist");
 
         let offer = offers_mapper.get();
-
-        let caller = self.blockchain().get_caller();
-
-        require!(offer.accepted_address == caller, "Can not accept this offer");
-
         let payment = self.call_value().single_esdt();
 
         require!(
             payment.token_identifier == offer.accepted_token
                 && payment.token_nonce == offer.accepted_nonce
-                && payment.amount == 1,
-            "NFT does not match"
+                && payment.amount == offer.accepted_amount,
+            "Incorrect payment for offer"
         );
 
         self.created_offers(&offer.creator).swap_remove(&offer_id);
@@ -123,20 +120,34 @@ pub trait Escrow {
         );
         self.send().direct_esdt(
             &offer.accepted_address,
-            &offer.nft,
+            &offer.identifier,
             offer.nonce,
             &BigUint::from(1u64),
         );
     }
 
-    #[view(listOffers)]
-    fn get_offers(
+    #[view(getCreatedOffers)]
+    fn get_created_offers(
         &self,
         address: ManagedAddress,
     ) -> MultiValueEncoded<MultiValue2<u32, Offer<Self::Api>>> {
         let mut result = MultiValueEncoded::new();
 
         for offer_id in self.created_offers(&address).iter() {
+            result.push(self.get_offer_result(offer_id));
+        }
+
+        result
+    }
+
+    #[view(getWantedOffers)]
+    fn get_wanted_offers(
+        &self,
+        address: ManagedAddress,
+    ) -> MultiValueEncoded<MultiValue2<u32, Offer<Self::Api>>> {
+        let mut result = MultiValueEncoded::new();
+
+        for offer_id in self.wanted_offers(&address).iter() {
             result.push(self.get_offer_result(offer_id));
         }
 
