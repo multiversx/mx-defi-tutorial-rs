@@ -162,10 +162,6 @@ pub trait Escrow {
 
     // storage
 
-    #[view(getUserBalance)]
-    #[storage_mapper("userBalance")]
-    fn user_balance(&self, address: ManagedAddress) -> SingleValueMapper<BigUint>;
-
     #[view]
     #[storage_mapper("createdOffers")]
     fn created_offers(&self, address: &ManagedAddress) -> UnorderedSetMapper<u32>;
