@@ -1,14 +1,15 @@
 #![no_std]
 
 multiversx_sc::imports!();
-multiversx_sc::derive_imports!();
 
-pub mod config;
+pub mod events;
+pub mod offer;
 
-use crate::config::Offer;
+use crate::offer::Offer;
+use offer::OfferId;
 
 #[multiversx_sc::contract]
-pub trait Escrow: config::ConfigModule {
+pub trait Escrow: offer::OfferModule + events::EventsModule {
     #[init]
     fn init(&self) {}
 
@@ -22,34 +23,27 @@ pub trait Escrow: config::ConfigModule {
         accepted_token: TokenIdentifier,
         accepted_nonce: u64,
         accepted_amount: BigUint,
-        opt_accepted_address: OptionalValue<ManagedAddress>,
-    ) -> u64 {
+        accepted_address: ManagedAddress,
+    ) -> OfferId {
         let payment = self.call_value().single_esdt();
-        require!(
-            payment.token_nonce > 0 && payment.amount == 1,
-            "ESDT is not an NFT"
-        );
-
         let caller = self.blockchain().get_caller();
         let new_offer_id = self.get_new_offer_id();
-        let accepted_address_option = opt_accepted_address.into_option();
 
         self.created_offers(&caller).insert(new_offer_id);
-        if accepted_address_option.is_some() {
-            let accepted_address = accepted_address_option.clone().unwrap();
-            self.wanted_offers(&accepted_address).insert(new_offer_id);
-        }
+        self.wanted_offers(&accepted_address).insert(new_offer_id);
 
         let accepted_payment =
             EsdtTokenPayment::new(accepted_token, accepted_nonce, accepted_amount);
-        let offer = Offer::new(caller, payment, accepted_payment, accepted_address_option);
-        self.offers(new_offer_id).set(offer);
+        let offer = Offer::new(caller, payment, accepted_payment, accepted_address);
+        self.offers(new_offer_id).set(&offer);
+
+        self.emit_create_offer_event(&offer);
 
         new_offer_id
     }
 
     #[endpoint(cancelOffer)]
-    fn cancel_offer(&self, offer_id: u64) {
+    fn cancel_offer(&self, offer_id: OfferId) {
         let offer = self.get_offer_by_id(offer_id);
         let caller = self.blockchain().get_caller();
 
@@ -58,12 +52,9 @@ pub trait Escrow: config::ConfigModule {
             "Only the offer creator can cancel it"
         );
 
-        if offer.opt_accepted_address.is_some() {
-            let accepted_address = offer.opt_accepted_address.unwrap();
-            self.wanted_offers(&accepted_address).swap_remove(&offer_id);
-        }
-
         self.created_offers(&caller).swap_remove(&offer_id);
+        self.wanted_offers(&offer.accepted_address)
+            .swap_remove(&offer_id);
         self.offers(offer_id).clear();
 
         self.send().direct_esdt(
@@ -72,11 +63,13 @@ pub trait Escrow: config::ConfigModule {
             offer.offered_payment.token_nonce,
             &offer.offered_payment.amount,
         );
+
+        self.emit_cancel_offer_event(&offer);
     }
 
     #[payable("*")]
     #[endpoint(acceptOffer)]
-    fn accept_offer(&self, offer_id: u64) {
+    fn accept_offer(&self, offer_id: OfferId) {
         let caller = self.blockchain().get_caller();
         let offer = self.get_offer_by_id(offer_id);
         let payment = self.call_value().single_esdt();
@@ -84,13 +77,11 @@ pub trait Escrow: config::ConfigModule {
             payment == offer.accepted_payment,
             "Incorrect payment for offer"
         );
-        if offer.opt_accepted_address.is_some() {
-            let accepted_address = offer.opt_accepted_address.unwrap();
-            require!(accepted_address == caller, "Incorrect caller");
-            self.wanted_offers(&accepted_address).swap_remove(&offer_id);
-        }
+        require!(offer.accepted_address == caller, "Incorrect caller");
 
         self.created_offers(&offer.creator).swap_remove(&offer_id);
+        self.wanted_offers(&offer.accepted_address)
+            .swap_remove(&offer_id);
         self.offers(offer_id).clear();
 
         self.send().direct_esdt(
@@ -105,16 +96,18 @@ pub trait Escrow: config::ConfigModule {
             offer.offered_payment.token_nonce,
             &offer.offered_payment.amount,
         );
+
+        self.emit_accept_offer_event(&offer);
     }
 
-    fn get_offer_by_id(&self, offer_id: u64) -> Offer<Self::Api> {
+    fn get_offer_by_id(&self, offer_id: OfferId) -> Offer<Self::Api> {
         let offer_mapper = self.offers(offer_id);
         require!(!offer_mapper.is_empty(), "Offer does not exist");
 
         offer_mapper.get()
     }
 
-    fn get_new_offer_id(&self) -> u64 {
+    fn get_new_offer_id(&self) -> OfferId {
         let last_offer_id_mapper = self.last_offer_id();
         let new_offer_id = last_offer_id_mapper.get() + 1;
         last_offer_id_mapper.set(new_offer_id);
