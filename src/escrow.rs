@@ -73,11 +73,11 @@ pub trait Escrow: offer::OfferModule + events::EventsModule {
         let caller = self.blockchain().get_caller();
         let offer = self.get_offer_by_id(offer_id);
         let payment = self.call_value().single_esdt();
+        require!(offer.accepted_address == caller, "Incorrect caller");
         require!(
             payment == offer.accepted_payment,
             "Incorrect payment for offer"
         );
-        require!(offer.accepted_address == caller, "Incorrect caller");
 
         self.created_offers(&offer.creator).swap_remove(&offer_id);
         self.wanted_offers(&offer.accepted_address)
