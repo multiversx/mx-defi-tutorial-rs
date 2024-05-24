@@ -2,10 +2,11 @@
 
 multiversx_sc::imports!();
 
+pub mod errors;
 pub mod events;
 pub mod offer;
 
-use crate::offer::Offer;
+use crate::{errors::*, offer::Offer};
 use offer::OfferId;
 
 #[multiversx_sc::contract]
@@ -47,10 +48,7 @@ pub trait Escrow: offer::OfferModule + events::EventsModule {
         let offer = self.get_offer_by_id(offer_id);
         let caller = self.blockchain().get_caller();
 
-        require!(
-            offer.creator == caller,
-            "Only the offer creator can cancel it"
-        );
+        require!(offer.creator == caller, ERROR_ONLY_CREATOR);
 
         self.created_offers(&caller).swap_remove(&offer_id);
         self.wanted_offers(&offer.accepted_address)
@@ -73,11 +71,8 @@ pub trait Escrow: offer::OfferModule + events::EventsModule {
         let caller = self.blockchain().get_caller();
         let offer = self.get_offer_by_id(offer_id);
         let payment = self.call_value().single_esdt();
-        require!(offer.accepted_address == caller, "Incorrect caller");
-        require!(
-            payment == offer.accepted_payment,
-            "Incorrect payment for offer"
-        );
+        require!(offer.accepted_address == caller, ERROR_INCORRECT_CALLER);
+        require!(payment == offer.accepted_payment, ERROR_INCORRECT_PAYMENT);
 
         self.created_offers(&offer.creator).swap_remove(&offer_id);
         self.wanted_offers(&offer.accepted_address)
@@ -102,7 +97,7 @@ pub trait Escrow: offer::OfferModule + events::EventsModule {
 
     fn get_offer_by_id(&self, offer_id: OfferId) -> Offer<Self::Api> {
         let offer_mapper = self.offers(offer_id);
-        require!(!offer_mapper.is_empty(), "Offer does not exist");
+        require!(!offer_mapper.is_empty(), ERROR_OFFER_DOES_NOT_EXIST);
 
         offer_mapper.get()
     }
