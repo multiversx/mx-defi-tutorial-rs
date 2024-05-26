@@ -81,12 +81,12 @@ pub trait Escrow: offer::OfferModule + events::EventsModule {
 
         self.send().direct_esdt(
             &offer.creator,
-            &payment.token_identifier,
-            payment.token_nonce,
-            &payment.amount,
+            &offer.accepted_payment.token_identifier,
+            offer.accepted_payment.token_nonce,
+            &offer.accepted_payment.amount,
         );
         self.send().direct_esdt(
-            &caller,
+            &offer.accepted_address,
             &offer.offered_payment.token_identifier,
             offer.offered_payment.token_nonce,
             &offer.offered_payment.amount,
