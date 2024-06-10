@@ -1,6 +1,6 @@
 #![no_std]
 
-multiversx_sc::imports!();
+use multiversx_sc::imports::*;
 
 #[multiversx_sc::contract]
 pub trait Escrow {
@@ -11,25 +11,24 @@ pub trait Escrow {
     #[endpoint(deposit)]
     fn deposit(&self) {
         let caller = self.blockchain().get_caller();
-        let payment = self.call_value().egld_value();
+        let payment = self.call_value().egld_value().clone_value();
 
-        let new_balance = self.user_balance(caller.clone()).get() + &*payment;
-        self.user_balance(caller).set(new_balance);
+        let new_balance = self.user_balance(&caller).get() + payment;
+        self.user_balance(&caller).set(new_balance);
     }
 
     #[endpoint(withdraw)]
     fn withdraw(&self) {
         let caller = self.blockchain().get_caller();
-        let balance = self.user_balance(caller.clone()).get();
+        let balance = self.user_balance(&caller).get();
 
-        self.user_balance(caller.clone()).set(BigUint::from(0u64));
-        self.send()
-            .direct_egld(&caller, &balance);
+        self.user_balance(&caller).clear();
+        self.tx().to(&caller).egld(&balance).transfer();
     }
 
     // storage
 
     #[view(getUserBalance)]
     #[storage_mapper("userBalance")]
-    fn user_balance(&self, address: ManagedAddress) -> SingleValueMapper<BigUint>;
+    fn user_balance(&self, address: &ManagedAddress) -> SingleValueMapper<BigUint>;
 }
