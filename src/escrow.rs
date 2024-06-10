@@ -1,9 +1,10 @@
 #![no_std]
 
-multiversx_sc::imports!();
-multiversx_sc::derive_imports!();
+use multiversx_sc::derive_imports::*;
+use multiversx_sc::imports::*;
 
-#[derive(TypeAbi, TopEncode, TopDecode)]
+#[type_abi]
+#[derive(TopEncode, TopDecode)]
 pub struct Offer<M: ManagedTypeApi> {
     pub creator: ManagedAddress<M>,
     pub identifier: TokenIdentifier<M>,
@@ -52,7 +53,7 @@ pub trait Escrow {
             accepted_token,
             accepted_nonce,
             accepted_amount,
-            accepted_address
+            accepted_address,
         };
 
         self.offers(offer_id).set(offer);
@@ -81,12 +82,10 @@ pub trait Escrow {
 
         self.offers(offer_id).clear();
 
-        self.send().direct_esdt(
-            &offer.creator,
-            &offer.identifier,
-            offer.nonce,
-            &BigUint::from(1u64),
-        );
+        self.tx()
+            .to(&offer.creator)
+            .single_esdt(&offer.identifier, offer.nonce, &BigUint::from(1u64))
+            .transfer();
     }
 
     #[payable("*")]
@@ -112,18 +111,19 @@ pub trait Escrow {
 
         self.offers(offer_id).clear();
 
-        self.send().direct_esdt(
-            &offer.creator,
-            &payment.token_identifier,
-            payment.token_nonce,
-            &payment.amount,
-        );
-        self.send().direct_esdt(
-            &offer.accepted_address,
-            &offer.identifier,
-            offer.nonce,
-            &BigUint::from(1u64),
-        );
+        self.tx()
+            .to(&offer.creator)
+            .single_esdt(
+                &payment.token_identifier,
+                payment.token_nonce,
+                &payment.amount,
+            )
+            .transfer();
+
+        self.tx()
+            .to(&offer.accepted_address)
+            .single_esdt(&offer.identifier, offer.nonce, &BigUint::from(1u64))
+            .transfer();
     }
 
     #[view(getCreatedOffers)]
