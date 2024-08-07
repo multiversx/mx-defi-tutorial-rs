@@ -1,1 +1,1 @@
-/Users/ccorcov/Projects/elrond/mvx-defi-tutorial-rs/target/debug/escrow-meta: /Users/ccorcov/Projects/elrond/mvx-defi-tutorial-rs/meta/src/main.rs /Users/ccorcov/Projects/elrond/mvx-defi-tutorial-rs/src/escrow.rs
+/home/multiversx/mx-defi-tutorial-rs/target/debug/escrow-meta: /home/multiversx/mx-defi-tutorial-rs/meta/src/main.rs /home/multiversx/mx-defi-tutorial-rs/src/escrow.rs
